@@ -32,16 +32,26 @@ func TestCacheExpiration(t *testing.T) {
 func TestConcurrentAccess(t *testing.T) {
 	cache := New()
 
-	for i := 0; i < 100; i++ {
-		cache.Set(uint64(i), i)
-	}
-
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+
+	numOperations := 100
+
+	for i := 0; i < numOperations; i++ {
 		wg.Add(1)
 		go func(i int) {
-			cache.Get(uint64(i))
 			defer wg.Done()
+			cache.Set(uint64(i), i)
+		}(i)
+	}
+
+	for i := 0; i < numOperations; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			value, found := cache.Get(uint64(i))
+			if found && value != i {
+				t.Errorf("expected value %d, got %v", i, value)
+			}
 		}(i)
 	}
 	wg.Wait()
